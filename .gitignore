@@ -21,3 +21,6 @@ internal
 # Local Netlify folder
 .netlify
 
+apps/desktop/flatpak/pnpm-sources.json
+apps/desktop/flatpak/cargo-sources.json
+
