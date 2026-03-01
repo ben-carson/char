@@ -162,11 +162,69 @@ pub(crate) fn monitor_device_change(
 }
 
 pub(crate) fn monitor_volume_mute(
-    _event_tx: mpsc::Sender<DeviceUpdate>,
+    event_tx: mpsc::Sender<DeviceUpdate>,
     stop_rx: mpsc::Receiver<()>,
 ) {
-    tracing::warn!("volume_mute_monitoring_unsupported_on_linux");
+    let Some((mainloop, context)) = setup_pulseaudio(&stop_rx) else {
+        return;
+    };
+
+    context.borrow_mut().subscribe(InterestMaskSet::SINK, |success| {
+        if !success {
+            tracing::error!("Failed to subscribe to PulseAudio sink events");
+        }
+    });
+
+    let event_tx_for_callback = event_tx.clone();
+    let context_for_callback = context.clone();
+    context.borrow_mut().set_subscribe_callback(Some(Box::new(
+        move |facility, operation, _index| {
+            if !matches!(
+                (facility, operation),
+                (Some(Facility::Sink), Some(Operation::Changed))
+                    | (Some(Facility::Server), Some(Operation::Changed))
+            ) {
+                return;
+            }
+
+            let event_tx_inner = event_tx_for_callback.clone();
+            context_for_callback
+                .borrow_mut()
+                .introspect()
+                .get_sink_info_by_name("@DEFAULT_SINK@", move |list_result| {
+                    use libpulse_binding::callbacks::ListResult;
+                    if let ListResult::Item(sink_info) = list_result {
+                        let device_uid = sink_info
+                            .name
+                            .as_ref()
+                            .map(|n| n.to_string())
+                            .unwrap_or_default();
+
+                        let volume = sink_info.volume.avg().0 as f32
+                            / libpulse_binding::volume::Volume::NORMAL.0 as f32;
+
+                        let _ = event_tx_inner.send(DeviceUpdate::VolumeChanged {
+                            device_uid: device_uid.clone(),
+                            volume,
+                        });
+                        let _ = event_tx_inner.send(DeviceUpdate::MuteChanged {
+                            device_uid,
+                            is_muted: sink_info.mute,
+                        });
+                    }
+                });
+        },
+    )));
+
+    mainloop.borrow_mut().unlock();
+
+    tracing::info!("monitor_volume_mute_started");
+
     let _ = stop_rx.recv();
+
+    cleanup_pulseaudio(mainloop, context);
+
+    tracing::info!("monitor_volume_mute_stopped");
 }
 
 pub(crate) fn monitor(event_tx: mpsc::Sender<DeviceEvent>, stop_rx: mpsc::Receiver<()>) {
