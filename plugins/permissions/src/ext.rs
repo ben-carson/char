@@ -148,7 +148,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
         #[cfg(not(target_os = "macos"))]
         {
-            Ok(PermissionStatus::Denied)
+            Ok(PermissionStatus::Authorized)
         }
     }
 
@@ -160,7 +160,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
         #[cfg(not(target_os = "macos"))]
         {
-            Ok(PermissionStatus::Denied)
+            Ok(PermissionStatus::Authorized)
         }
     }
 
@@ -210,7 +210,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
         #[cfg(not(target_os = "macos"))]
         {
-            Ok(PermissionStatus::Denied)
+            Ok(PermissionStatus::Authorized)
         }
     }
 
