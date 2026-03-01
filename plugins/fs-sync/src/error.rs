@@ -44,6 +44,8 @@ pub enum AudioProcessingError {
     #[error("audio_import_afconvert_failed: {0}")]
     #[allow(dead_code)]
     AfconvertFailed(String),
+    #[error("audio_import_ffmpeg_failed: {0}")]
+    FfmpegFailed(String),
 }
 
 #[derive(Debug, thiserror::Error)]

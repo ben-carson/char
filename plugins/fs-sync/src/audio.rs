@@ -85,7 +85,35 @@ pub fn import_audio(
             }
             #[cfg(not(target_os = "macos"))]
             {
-                Err(_original_err.into())
+                let wav_path = source_path.with_extension("ffmpeg_tmp.wav");
+                let ffmpeg_result = std::process::Command::new("ffmpeg")
+                    .args([
+                        "-i",
+                        source_path.to_str().unwrap_or_default(),
+                        "-f",
+                        "wav",
+                        "-y",
+                        wav_path.to_str().unwrap_or_default(),
+                    ])
+                    .output();
+
+                match ffmpeg_result {
+                    Ok(output) if output.status.success() => {
+                        let result = (|| {
+                            let file = File::open(&wav_path)?;
+                            let decoder = rodio::Decoder::try_from(file)?;
+                            import_audio_from_decoder(decoder, tmp_path, target_path)
+                        })();
+                        let _ = std::fs::remove_file(&wav_path);
+                        result
+                    }
+                    Ok(output) => {
+                        let _ = std::fs::remove_file(&wav_path);
+                        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                        Err(AudioProcessingError::FfmpegFailed(stderr))
+                    }
+                    Err(_) => Err(_original_err.into()),
+                }
             }
         }
     }
