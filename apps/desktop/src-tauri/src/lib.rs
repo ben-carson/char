@@ -138,11 +138,14 @@ pub async fn main() {
                     .map(|ctx| ctx.supervisor.get_cell()),
             },
         ))
-        .plugin(tauri_plugin_autostart::init(
+        .plugin(tauri_plugin_updater2::init());
+
+    if std::env::var("FLATPAK").as_deref() != Ok("1") {
+        builder = builder.plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--background"]),
-        ))
-        .plugin(tauri_plugin_updater2::init());
+        ));
+    }
 
     if let Some(client) = sentry_client.as_ref() {
         builder = builder.plugin(tauri_plugin_sentry::init_with_no_injection(client));
